@@ -10,7 +10,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],    # allows Netlify + any frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,47 +22,38 @@ sessions: dict = {}
 def get_session(session_id: str) -> dict:
     if session_id not in sessions:
         sessions[session_id] = {
-            # shared
             "chat_history": [],
-            "mode": None,          # "builder" | "seo" | "generate"
-            # builder fields
+            "mode": None,
             "business_type": None,
             "website_goal":  None,
             "pages_needed":  None,
             "tech_stack":    None,
             "design_style":  None,
-            # seo fields (populated dynamically as seo_data dict)
             "seo_step": 0,
             "seo_data": {},
-            # generate fields (populated dynamically as gen_data dict)
             "gen_step": 0,
             "gen_data": {},
         }
     return sessions[session_id]
 
 
-# ── Request model ──────────────────────────────────────────────────────────
 class Message(BaseModel):
     session_id: str
     message: str = ""
 
 
-# ── /chat ──────────────────────────────────────────────────────────────────
 @app.post("/chat")
 @app.post("/chat/")
 def chat(msg: Message):
     session_id   = msg.session_id
     user_message = msg.message.strip()
-
     if not user_message:
         return {"reply": "Please type a message."}
-
     session = get_session(session_id)
     reply   = chatbot_logic(session, user_message)
     return {"reply": reply}
 
 
-# ── /stream  ───────────────────────────────────────────────────────────────
 @app.post("/stream")
 def stream(msg: Message):
     def generate():
@@ -74,7 +65,6 @@ def stream(msg: Message):
     return StreamingResponse(generate(), media_type="text/plain")
 
 
-# ── /reset/{session_id} ───────────────────────────────────────────────────
 @app.post("/reset/{session_id}")
 def reset_chat(session_id: str):
     if session_id in sessions:
@@ -82,7 +72,6 @@ def reset_chat(session_id: str):
     return {"message": "Chat reset successfully"}
 
 
-# ── / ─────────────────────────────────────────────────────────────────────
 @app.get("/")
 def home():
     return {"message": "SiteBot AI — 3-mode API running ✓"}
